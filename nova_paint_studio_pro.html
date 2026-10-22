@@ -1,0 +1,1581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Nova Paint Studio Pro - 2D & 3D Art Suite</title>
+
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <!-- Three.js & OrbitControls -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        dark: {
+                            900: '#060810',
+                            800: '#0b0f19',
+                            700: '#131b2e',
+                            600: '#1d2942',
+                        },
+                        cyan: {
+                            400: '#22d3ee',
+                            500: '#06b6d4',
+                            glow: '#00f0ff',
+                        },
+                        indigo: {
+                            500: '#6366f1',
+                            glow: '#7000ff',
+                        }
+                    },
+                    fontFamily: {
+                        sans: ['Inter', 'sans-serif'],
+                        mono: ['JetBrains Mono', 'monospace'],
+                    }
+                }
+            }
+        }
+    </script>
+
+    <style>
+        /* Glassmorphism & Custom Styling */
+        body {
+            background-color: #04060a;
+            color: #f1f5f9;
+            overflow: hidden;
+            user-select: none;
+            font-family: 'Inter', sans-serif;
+        }
+
+        .glass-panel {
+            background: rgba(11, 15, 25, 0.75);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.5);
+        }
+
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .glass-btn:hover {
+            background: rgba(0, 240, 255, 0.15);
+            border-color: rgba(0, 240, 255, 0.4);
+            box-shadow: 0 0 12px rgba(0, 240, 255, 0.25);
+        }
+
+        .glass-btn.active {
+            background: linear-gradient(135deg, rgba(6, 182, 212, 0.3), rgba(99, 102, 241, 0.3));
+            border-color: #00f0ff;
+            box-shadow: 0 0 15px rgba(0, 240, 255, 0.4);
+            color: #ffffff;
+        }
+
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar {
+            width: 5px;
+            height: 5px;
+        }
+        ::-webkit-scrollbar-track {
+            background: rgba(10, 15, 25, 0.5);
+        }
+        ::-webkit-scrollbar-thumb {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: rgba(0, 240, 255, 0.5);
+        }
+
+        /* Color Picker Input Custom styling */
+        input[type="color"]::-webkit-color-swatch-wrapper {
+            padding: 0;
+        }
+        input[type="color"]::-webkit-color-swatch {
+            border: none;
+            border-radius: 6px;
+        }
+
+        /* Neon Text Effect */
+        .neon-text {
+            text-shadow: 0 0 8px rgba(0, 240, 255, 0.6);
+        }
+
+        canvas {
+            touch-action: none;
+        }
+    </style>
+</head>
+<body class="h-screen w-screen flex flex-col antialiased select-none overflow-hidden text-slate-200">
+
+    <!-- Top Navigation Header -->
+    <header class="h-14 glass-panel border-b border-slate-800/80 px-4 flex items-center justify-between z-30 relative shrink-0">
+        <!-- Logo & Branding -->
+        <div class="flex items-center gap-3">
+            <div class="relative flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-tr from-cyan-500 to-indigo-600 shadow-lg shadow-cyan-500/30">
+                <i data-lucide="sparkles" class="w-5 h-5 text-white animate-pulse"></i>
+            </div>
+            <div>
+                <h1 class="font-bold tracking-wide text-base bg-gradient-to-r from-cyan-400 via-indigo-300 to-pink-400 bg-clip-text text-transparent">
+                    NOVA PAINT STUDIO <span class="text-xs px-1.5 py-0.5 rounded bg-cyan-500/20 text-cyan-300 border border-cyan-500/30 font-mono">PRO 3.0</span>
+                </h1>
+            </div>
+        </div>
+
+        <!-- Mode Switcher Tabs -->
+        <div class="flex items-center bg-dark-900/90 p-1 rounded-xl border border-slate-800 gap-1">
+            <button id="btn-mode-split" onclick="setViewportMode('split')" class="glass-btn active px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition">
+                <i data-lucide="columns-2" class="w-4 h-4"></i> Split View (2D+3D)
+            </button>
+            <button id="btn-mode-2d" onclick="setViewportMode('2d')" class="glass-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition">
+                <i data-lucide="square" class="w-4 h-4"></i> 2D Canvas
+            </button>
+            <button id="btn-mode-3d" onclick="setViewportMode('3d')" class="glass-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 transition">
+                <i data-lucide="box" class="w-4 h-4"></i> 3D Viewport
+            </button>
+        </div>
+
+        <!-- Global Actions / Export Header Toolbar -->
+        <div class="flex items-center gap-2">
+            <button onclick="undo()" class="glass-btn p-2 rounded-lg text-slate-300 hover:text-white" title="Undo (Ctrl+Z)">
+                <i data-lucide="undo-2" class="w-4 h-4"></i>
+            </button>
+            <button onclick="redo()" class="glass-btn p-2 rounded-lg text-slate-300 hover:text-white" title="Redo (Ctrl+Y)">
+                <i data-lucide="redo-2" class="w-4 h-4"></i>
+            </button>
+            <div class="h-5 w-px bg-slate-800 mx-1"></div>
+            
+            <button onclick="triggerImportImage()" class="glass-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 text-slate-300 hover:text-white">
+                <i data-lucide="upload" class="w-4 h-4"></i> Import
+            </button>
+            <input type="file" id="image-loader" accept="image/*" class="hidden" onchange="handleImageImport(event)">
+
+            <div class="relative group">
+                <button class="glass-btn px-3 py-1.5 rounded-lg text-xs font-medium flex items-center gap-1.5 text-cyan-300 bg-cyan-500/10 border-cyan-500/30">
+                    <i data-lucide="download" class="w-4 h-4"></i> Export <i data-lucide="chevron-down" class="w-3 h-3"></i>
+                </button>
+                <div class="absolute right-0 top-full mt-1 w-48 glass-panel rounded-xl py-2 hidden group-hover:block z-50 border border-slate-700/80 shadow-2xl">
+                    <button onclick="export2DCanvas('png')" class="w-full px-4 py-2 text-left text-xs hover:bg-cyan-500/20 flex items-center gap-2">
+                        <i data-lucide="file-image" class="w-4 h-4 text-cyan-400"></i> Export 2D Texture (PNG)
+                    </button>
+                    <button onclick="export3DRender()" class="w-full px-4 py-2 text-left text-xs hover:bg-cyan-500/20 flex items-center gap-2">
+                        <i data-lucide="camera" class="w-4 h-4 text-indigo-400"></i> Render 3D Scene (4K Snapshot)
+                    </button>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Workspace Area -->
+    <div class="flex-1 flex overflow-hidden relative">
+
+        <!-- Left Toolbar (Brushes, Sculpting, Spatial Tools) -->
+        <aside class="w-16 glass-panel border-r border-slate-800/80 flex flex-col items-center py-3 gap-3 z-20 shrink-0">
+            <!-- Tool Group: 2D Painting -->
+            <div class="text-[10px] font-mono text-slate-500 uppercase tracking-wider">Paint</div>
+            
+            <button id="tool-brush" onclick="setTool('brush')" class="glass-btn p-2.5 rounded-xl text-slate-300 active" title="Standard Brush">
+                <i data-lucide="paintbrush" class="w-5 h-5"></i>
+            </button>
+            <button id="tool-airbrush" onclick="setTool('airbrush')" class="glass-btn p-2.5 rounded-xl text-slate-300" title="Soft Airbrush">
+                <i data-lucide="cloud" class="w-5 h-5"></i>
+            </button>
+            <button id="tool-neon" onclick="setTool('neon')" class="glass-btn p-2.5 rounded-xl text-slate-300" title="Neon Glow Brush">
+                <i data-lucide="zap" class="w-5 h-5"></i>
+            </button>
+            <button id="tool-smudge" onclick="setTool('smudge')" class="glass-btn p-2.5 rounded-xl text-slate-300" title="Smudge / Blur Tool">
+                <i data-lucide="fingerprint" class="w-5 h-5"></i>
+            </button>
+            <button id="tool-bucket" onclick="setTool('bucket')" class="glass-btn p-2.5 rounded-xl text-slate-300" title="Flood Fill Bucket">
+                <i data-lucide="paint-bucket" class="w-5 h-5"></i>
+            </button>
+            <button id="tool-decal" onclick="setTool('decal')" class="glass-btn p-2.5 rounded-xl text-slate-300" title="Sticker / Decal Stamp">
+                <i data-lucide="stamp" class="w-5 h-5"></i>
+            </button>
+            <button id="tool-eraser" onclick="setTool('eraser')" class="glass-btn p-2.5 rounded-xl text-slate-300" title="Eraser">
+                <i data-lucide="eraser" class="w-5 h-5"></i>
+            </button>
+
+            <div class="w-8 h-px bg-slate-800 my-1"></div>
+
+            <!-- Tool Group: 3D Surface & Spatial -->
+            <div class="text-[10px] font-mono text-slate-500 uppercase tracking-wider">3D Special</div>
+
+            <button id="tool-sculpt-raise" onclick="setTool('sculpt-raise')" class="glass-btn p-2.5 rounded-xl text-slate-300" title="3D Sculpt: Pull/Raise Mesh">
+                <i data-lucide="mountain" class="w-5 h-5"></i>
+            </button>
+            <button id="tool-sculpt-lower" onclick="setTool('sculpt-lower')" class="glass-btn p-2.5 rounded-xl text-slate-300" title="3D Sculpt: Push/Lower Mesh">
+                <i data-lucide="disc" class="w-5 h-5"></i>
+            </button>
+            <button id="tool-spatial-ribbon" onclick="setTool('spatial-ribbon')" class="glass-btn p-2.5 rounded-xl text-slate-300" title="3D Spatial Air Ribbon Draw">
+                <i data-lucide="orbit" class="w-5 h-5"></i>
+            </button>
+
+            <div class="mt-auto flex flex-col gap-2">
+                <button id="btn-toggle-grid" onclick="toggleCanvasGrid()" class="glass-btn p-2 rounded-lg text-slate-400 hover:text-white" title="Toggle Grid Overlay">
+                    <i data-lucide="grid" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </aside>
+
+        <!-- Viewports Container (Dual 2D Canvas & 3D WebGL Scene) -->
+        <main id="viewports-container" class="flex-1 relative flex overflow-hidden bg-dark-900">
+
+            <!-- 2D Canvas Container -->
+            <div id="viewport-2d" class="relative flex-1 flex items-center justify-center bg-[#070a12] border-r border-slate-800/80 overflow-hidden">
+                <!-- Helper overlay info -->
+                <div class="absolute top-3 left-3 z-10 pointer-events-none flex items-center gap-2">
+                    <span class="px-2 py-1 rounded-md bg-dark-800/80 text-xs font-mono text-cyan-400 border border-slate-700/60">
+                        2D TEXTURE CANVAS [1024x1024]
+                    </span>
+                    <span id="symmetry-indicator" class="hidden px-2 py-1 rounded-md bg-indigo-500/20 text-xs font-mono text-indigo-300 border border-indigo-500/30">
+                        SYMMETRY: ACTIVE
+                    </span>
+                </div>
+
+                <!-- Canvas Grid Overlay -->
+                <div id="canvas-grid" class="absolute inset-0 pointer-events-none opacity-15 hidden" 
+                     style="background-size: 32px 32px; background-image: linear-gradient(to right, rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.1) 1px, transparent 1px);">
+                </div>
+
+                <!-- Main Canvas Stack Container -->
+                <div id="canvas-wrapper" class="relative shadow-2xl border border-slate-700/50 rounded-sm bg-[url('data:image/svg+xml;utf8,<svg%20xmlns=%22http://www.w3.org/2000/svg%22%20width=%2216%22%20height=%2216%22%20viewBox=%220%22%200%2016%2016%22><rect%20width=%228%22%20height=%228%22%20fill=%22%23111625%22/><rect%20x=%228%22%20width=%228%22%20height=%228%22%20fill=%22%23182033%22/><rect%20y=%228%22%20width=%228%22%20height=%228%22%20fill=%22%23182033%22/><rect%20x=%228%22%20y=%228%22%20width=%228%22%20height=%228%22%20fill=%22%23111625%22/></svg>')]">
+                    <!-- Dynamic Layer Canvases injected via JS -->
+                    <!-- Master Composite Canvas (Hidden/Internal reference for Three.js texture) -->
+                    <canvas id="composite-canvas" width="1024" height="1024" class="hidden"></canvas>
+                </div>
+            </div>
+
+            <!-- 3D Viewport Canvas Container -->
+            <div id="viewport-3d" class="relative flex-1 flex items-center justify-center bg-[#05070d] overflow-hidden">
+                <div class="absolute top-3 left-3 z-10 pointer-events-none flex items-center gap-2">
+                    <span class="px-2 py-1 rounded-md bg-dark-800/80 text-xs font-mono text-indigo-400 border border-slate-700/60">
+                        3D LIVE SURFACE & MAPPING
+                    </span>
+                    <span id="sculpt-mode-badge" class="hidden px-2 py-1 rounded-md bg-pink-500/20 text-xs font-mono text-pink-300 border border-pink-500/30">
+                        SCULPT MODE
+                    </span>
+                </div>
+
+                <!-- 3D WebGL Canvas -->
+                <canvas id="three-canvas" class="w-full h-full cursor-grab active:cursor-grabbing"></canvas>
+
+                <!-- Floating HUD Instructions -->
+                <div class="absolute bottom-4 left-4 pointer-events-none glass-panel px-3 py-2 rounded-xl text-[11px] text-slate-400 flex items-center gap-3">
+                    <div><span class="text-cyan-400 font-semibold">Rotate:</span> Left Click Drag</div>
+                    <div><span class="text-cyan-400 font-semibold">Pan:</span> Right Click Drag</div>
+                    <div><span class="text-cyan-400 font-semibold">Zoom:</span> Scroll</div>
+                </div>
+            </div>
+
+        </main>
+
+        <!-- Right Control Panels (Tabs for Brushes, Layers, PBR Materials, Lighting & FX) -->
+        <aside class="w-80 glass-panel border-l border-slate-800/80 flex flex-col z-20 shrink-0">
+
+            <!-- Panel Tab Selector Header -->
+            <div class="flex border-b border-slate-800/80 bg-dark-900/50 p-1">
+                <button onclick="setActivePanel('brush')" id="tab-brush" class="flex-1 py-2 text-xs font-medium text-center rounded-lg glass-btn active">
+                    Tool & Color
+                </button>
+                <button onclick="setActivePanel('layers')" id="tab-layers" class="flex-1 py-2 text-xs font-medium text-center rounded-lg glass-btn">
+                    Layers
+                </button>
+                <button onclick="setActivePanel('material')" id="tab-material" class="flex-1 py-2 text-xs font-medium text-center rounded-lg glass-btn">
+                    3D PBR
+                </button>
+                <button onclick="setActivePanel('scene')" id="tab-scene" class="flex-1 py-2 text-xs font-medium text-center rounded-lg glass-btn">
+                    Lighting/FX
+                </button>
+            </div>
+
+            <!-- Panel Contents Container -->
+            <div class="flex-1 overflow-y-auto p-4 space-y-5">
+
+                <!-- PANEL 1: TOOL & COLOR CONTROLS -->
+                <div id="panel-brush" class="space-y-4">
+                    
+                    <!-- Brush Dynamics Preview Box -->
+                    <div class="bg-dark-900/80 border border-slate-800 p-3 rounded-xl flex flex-col gap-2">
+                        <div class="flex justify-between items-center text-xs text-slate-400">
+                            <span>Brush HUD Preview</span>
+                            <span id="brush-type-label" class="font-mono text-cyan-400">Standard Brush</span>
+                        </div>
+                        <div class="h-16 w-full bg-dark-800/90 rounded-lg border border-slate-700/50 flex items-center justify-center overflow-hidden relative">
+                            <canvas id="brush-hud-canvas" width="260" height="60" class="w-full h-full"></canvas>
+                        </div>
+                    </div>
+
+                    <!-- Size & Opacity Controls -->
+                    <div class="space-y-3">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-300">Brush Size</span>
+                                <span id="size-val" class="font-mono text-cyan-400">20px</span>
+                            </div>
+                            <input type="range" id="input-brush-size" min="1" max="150" value="20" oninput="updateBrushSettings()"
+                                   class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-300">Opacity / Flow</span>
+                                <span id="opacity-val" class="font-mono text-cyan-400">100%</span>
+                            </div>
+                            <input type="range" id="input-brush-opacity" min="0.05" max="1" step="0.05" value="1" oninput="updateBrushSettings()"
+                                   class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-300">Hardness / Feather</span>
+                                <span id="hardness-val" class="font-mono text-cyan-400">80%</span>
+                            </div>
+                            <input type="range" id="input-brush-hardness" min="0" max="1" step="0.05" value="0.8" oninput="updateBrushSettings()"
+                                   class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        </div>
+                    </div>
+
+                    <!-- Symmetry Mode -->
+                    <div class="pt-2 border-t border-slate-800">
+                        <label class="text-xs font-semibold text-slate-300 block mb-2">Symmetry Tool</label>
+                        <div class="grid grid-cols-4 gap-1">
+                            <button onclick="setSymmetry('none')" id="sym-none" class="glass-btn active py-1.5 rounded text-[11px] text-center">None</button>
+                            <button onclick="setSymmetry('vertical')" id="sym-vertical" class="glass-btn py-1.5 rounded text-[11px] text-center">Vertical</button>
+                            <button onclick="setSymmetry('horizontal')" id="sym-horizontal" class="glass-btn py-1.5 rounded text-[11px] text-center">Horiz</button>
+                            <button onclick="setSymmetry('radial')" id="sym-radial" class="glass-btn py-1.5 rounded text-[11px] text-center">Radial 8x</button>
+                        </div>
+                    </div>
+
+                    <!-- Color Picker Section -->
+                    <div class="pt-2 border-t border-slate-800 space-y-3">
+                        <div class="flex justify-between items-center">
+                            <label class="text-xs font-semibold text-slate-300">Active Color</label>
+                            <input type="color" id="input-color-picker" value="#00f0ff" onchange="setColor(this.value)" class="w-8 h-8 rounded-lg cursor-pointer bg-transparent">
+                        </div>
+
+                        <!-- Preset Palette Grid -->
+                        <div class="grid grid-cols-7 gap-1.5 pt-1">
+                            <div onclick="setColor('#00f0ff')" class="h-6 rounded-md cursor-pointer hover:scale-110 transition bg-[#00f0ff]"></div>
+                            <div onclick="setColor('#7000ff')" class="h-6 rounded-md cursor-pointer hover:scale-110 transition bg-[#7000ff]"></div>
+                            <div onclick="setColor('#ff007f')" class="h-6 rounded-md cursor-pointer hover:scale-110 transition bg-[#ff007f]"></div>
+                            <div onclick="setColor('#ff9900')" class="h-6 rounded-md cursor-pointer hover:scale-110 transition bg-[#ff9900]"></div>
+                            <div onclick="setColor('#00ff66')" class="h-6 rounded-md cursor-pointer hover:scale-110 transition bg-[#00ff66]"></div>
+                            <div onclick="setColor('#ffffff')" class="h-6 rounded-md cursor-pointer hover:scale-110 transition bg-[#ffffff]"></div>
+                            <div onclick="setColor('#0f172a')" class="h-6 rounded-md cursor-pointer hover:scale-110 transition bg-[#0f172a]"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL 2: MULTI-LAYER STACK -->
+                <div id="panel-layers" class="hidden space-y-4">
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs font-semibold text-slate-300">Canvas Layers</span>
+                        <button onclick="addNewLayer()" class="glass-btn px-2.5 py-1 rounded-lg text-xs text-cyan-300 flex items-center gap-1">
+                            <i data-lucide="plus" class="w-3.5 h-3.5"></i> Add Layer
+                        </button>
+                    </div>
+
+                    <!-- Layers Container List -->
+                    <div id="layers-list" class="space-y-2 max-h-80 overflow-y-auto pr-1">
+                        <!-- Dynamically populated layers -->
+                    </div>
+
+                    <!-- Selected Layer Blend Mode & Opacity -->
+                    <div class="pt-3 border-t border-slate-800 space-y-3">
+                        <div>
+                            <label class="text-xs text-slate-400 block mb-1">Blend Mode</label>
+                            <select id="layer-blend-mode" onchange="updateActiveLayerSettings()" class="w-full bg-dark-900 border border-slate-700 rounded-lg text-xs p-2 text-slate-200">
+                                <option value="source-over">Normal</option>
+                                <option value="multiply">Multiply</option>
+                                <option value="screen">Screen</option>
+                                <option value="overlay">Overlay</option>
+                                <option value="lighter">Add / Linear Dodge</option>
+                            </select>
+                        </div>
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-400">Layer Opacity</span>
+                                <span id="layer-opacity-val" class="font-mono text-cyan-400">100%</span>
+                            </div>
+                            <input type="range" id="layer-opacity-slider" min="0" max="1" step="0.05" value="1" oninput="updateActiveLayerSettings()"
+                                   class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL 3: 3D MODEL & PBR MATERIAL -->
+                <div id="panel-material" class="hidden space-y-4">
+                    <!-- 3D Mesh Selector -->
+                    <div>
+                        <label class="text-xs font-semibold text-slate-300 block mb-1.5">3D Canvas Base Geometry</label>
+                        <select id="mesh-selector" onchange="change3DMesh(this.value)" class="w-full bg-dark-900 border border-slate-700 rounded-lg text-xs p-2 text-slate-200">
+                            <option value="bust">Sculpting Bust Head</option>
+                            <option value="sphere">3D Sphere Object</option>
+                            <option value="car">Futuristic Vehicle Body</option>
+                            <option value="torus">Torus Ring Geometry</option>
+                            <option value="flat">Flat Quad Canvas Sheet</option>
+                            <option value="cube">Cube Canvas</option>
+                        </select>
+                    </div>
+
+                    <div class="pt-2 border-t border-slate-800 space-y-3">
+                        <span class="text-xs font-semibold text-slate-300 block">Physically Based Rendering (PBR)</span>
+
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-400">Roughness</span>
+                                <span id="val-roughness" class="font-mono text-cyan-400">0.30</span>
+                            </div>
+                            <input type="range" id="pbr-roughness" min="0" max="1" step="0.02" value="0.3" oninput="updatePBRMaterial()"
+                                   class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-400">Metalness</span>
+                                <span id="val-metalness" class="font-mono text-cyan-400">0.40</span>
+                            </div>
+                            <input type="range" id="pbr-metalness" min="0" max="1" step="0.02" value="0.4" oninput="updatePBRMaterial()"
+                                   class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-400">Clearcoat Gloss</span>
+                                <span id="val-clearcoat" class="font-mono text-cyan-400">0.50</span>
+                            </div>
+                            <input type="range" id="pbr-clearcoat" min="0" max="1" step="0.05" value="0.5" oninput="updatePBRMaterial()"
+                                   class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-400">Normal / Bump Depth</span>
+                                <span id="val-bump" class="font-mono text-cyan-400">0.05</span>
+                            </div>
+                            <input type="range" id="pbr-bump" min="0" max="0.3" step="0.01" value="0.05" oninput="updatePBRMaterial()"
+                                   class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        </div>
+
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-400">Emissive Bloom Intensity</span>
+                                <span id="val-emissive" class="font-mono text-cyan-400">0.20</span>
+                            </div>
+                            <input type="range" id="pbr-emissive" min="0" max="2" step="0.05" value="0.2" oninput="updatePBRMaterial()"
+                                   class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        </div>
+                    </div>
+                </div>
+
+                <!-- PANEL 4: LIGHTING & SCENE FX -->
+                <div id="panel-scene" class="hidden space-y-4">
+                    <!-- Lighting Presets -->
+                    <div>
+                        <label class="text-xs font-semibold text-slate-300 block mb-2">Studio Environment Lighting</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button onclick="setLightingPreset('cyberpunk')" class="glass-btn p-2 rounded-lg text-xs text-left">
+                                🌆 Cyberpunk Neon
+                            </button>
+                            <button onclick="setLightingPreset('studio')" class="glass-btn p-2 rounded-lg text-xs text-left">
+                                💡 Studio Clean
+                            </button>
+                            <button onclick="setLightingPreset('sunset')" class="glass-btn p-2 rounded-lg text-xs text-left">
+                                🌅 Golden Hour
+                            </button>
+                            <button onclick="setLightingPreset('deepspace')" class="glass-btn p-2 rounded-lg text-xs text-left">
+                                🌌 Sci-Fi Space
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- Light Rig Position -->
+                    <div class="pt-2 border-t border-slate-800 space-y-3">
+                        <div>
+                            <div class="flex justify-between text-xs mb-1">
+                                <span class="text-slate-400">Key Light Angle</span>
+                                <span id="val-light-rot" class="font-mono text-cyan-400">45°</span>
+                            </div>
+                            <input type="range" id="light-rotation" min="0" max="360" value="45" oninput="updateLightingControls()"
+                                   class="w-full h-1.5 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-cyan-400">
+                        </div>
+                    </div>
+
+                    <!-- Post-Processing / Visual FX Toggles -->
+                    <div class="pt-2 border-t border-slate-800 space-y-2">
+                        <label class="text-xs font-semibold text-slate-300 block mb-1">Post FX & Overlays</label>
+                        
+                        <div class="flex justify-between items-center glass-panel p-2 rounded-lg">
+                            <span class="text-xs text-slate-300">Wireframe Mesh Overlay</span>
+                            <input type="checkbox" id="toggle-wireframe" onchange="toggleWireframe(this.checked)" class="rounded accent-cyan-400">
+                        </div>
+
+                        <div class="flex justify-between items-center glass-panel p-2 rounded-lg">
+                            <span class="text-xs text-slate-300">Rotate Environment Floor</span>
+                            <input type="checkbox" id="toggle-auto-rotate" onchange="toggleAutoRotate(this.checked)" class="rounded accent-cyan-400">
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+    </div>
+
+    <!-- MAIN JAVASCRIPT APP LOGIC -->
+    <script>
+        /* ==========================================================================
+           1. GLOBAL APP STATE & VARIABLES
+           ========================================================================== */
+        const CANVAS_SIZE = 1024;
+        let viewportMode = 'split'; // 'split', '2d', '3d'
+        let currentTool = 'brush'; // 'brush', 'airbrush', 'neon', 'smudge', 'bucket', 'decal', 'eraser', 'sculpt-raise', 'sculpt-lower', 'spatial-ribbon'
+        
+        let brushSize = 20;
+        let brushOpacity = 1.0;
+        let brushHardness = 0.8;
+        let currentColor = '#00f0ff';
+        let symmetryMode = 'none'; // 'none', 'vertical', 'horizontal', 'radial'
+
+        // Canvas Layer System
+        let layers = []; // { id, name, canvas, ctx, visible, opacity, blendMode }
+        let activeLayerIndex = 0;
+        let layerCounter = 1;
+
+        // Composite canvas used for 3D texture mapping
+        let compositeCanvas, compositeCtx;
+
+        // History Stack (Undo / Redo)
+        const MAX_HISTORY = 25;
+        let historyStack = [];
+        let historyStep = -1;
+
+        // Three.js 3D Engine Variables
+        let scene, camera, renderer, controls;
+        let currentMesh, canvasTexture, pbrMaterial;
+        let spatialRibbonGroup;
+        let sculptModeActive = false;
+        let isSculpting = false;
+        let isSpatialDrawing = false;
+        let spatialPoints = [];
+        let lightRigGroup, keyLight, fillLight;
+
+        /* ==========================================================================
+           2. INITIALIZATION ON PAGE LOAD
+           ========================================================================== */
+        window.onload = function () {
+            // Initialize Lucide icons
+            lucide.createIcons();
+
+            // Setup composite canvas
+            compositeCanvas = document.getElementById('composite-canvas');
+            compositeCtx = compositeCanvas.getContext('2d');
+
+            // Initialize default 2D layers
+            initLayers();
+
+            // Initialize Three.js 3D viewport
+            init3DEngine();
+
+            // Setup brush HUD preview
+            drawBrushHUD();
+
+            // Setup mouse & touch listeners for 2D painting
+            setup2DPaintingListeners();
+
+            // Window resize handler
+            window.addEventListener('resize', onWindowResize);
+            onWindowResize();
+
+            // Push initial clean state to history
+            saveHistoryState();
+        };
+
+        /* ==========================================================================
+           3. 2D MULTI-LAYER ENGINE LOGIC
+           ========================================================================== */
+        function initLayers() {
+            const canvasWrapper = document.getElementById('canvas-wrapper');
+            canvasWrapper.style.width = '512px';
+            canvasWrapper.style.height = '512px';
+
+            // Layer 1: Background Base
+            addLayer('Background Base', '#0b0f19');
+            // Layer 2: Main Paint Layer
+            addLayer('Paint Layer 1');
+
+            activeLayerIndex = 1;
+            updateLayersUI();
+            updateCompositeCanvas();
+        }
+
+        function createBlankCanvas() {
+            const cvs = document.createElement('canvas');
+            cvs.width = CANVAS_SIZE;
+            cvs.height = CANVAS_SIZE;
+            cvs.className = 'absolute top-0 left-0 w-full h-full pointer-events-none rounded-sm';
+            return cvs;
+        }
+
+        function addLayer(name = null, fillColor = null) {
+            const layerId = 'layer_' + Date.now() + '_' + Math.random().toString(36).substr(2, 4);
+            const canvas = createBlankCanvas();
+            const ctx = canvas.getContext('2d');
+
+            if (fillColor) {
+                ctx.fillStyle = fillColor;
+                ctx.fillRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            }
+
+            const layerObj = {
+                id: layerId,
+                name: name || `Layer ${layerCounter++}`,
+                canvas: canvas,
+                ctx: ctx,
+                visible: true,
+                opacity: 1.0,
+                blendMode: 'source-over'
+            };
+
+            layers.push(layerObj);
+            document.getElementById('canvas-wrapper').appendChild(canvas);
+            
+            activeLayerIndex = layers.length - 1;
+            updateLayersUI();
+            updateCompositeCanvas();
+            saveHistoryState();
+        }
+
+        function addNewLayer() {
+            addLayer();
+        }
+
+        function removeLayer(index, event) {
+            if (event) event.stopPropagation();
+            if (layers.length <= 1) return; // Keep at least one layer
+
+            const layerToRemove = layers[index];
+            layerToRemove.canvas.remove();
+            layers.splice(index, 1);
+
+            if (activeLayerIndex >= layers.length) {
+                activeLayerIndex = layers.length - 1;
+            }
+
+            updateLayersUI();
+            updateCompositeCanvas();
+            saveHistoryState();
+        }
+
+        function toggleLayerVisibility(index, event) {
+            event.stopPropagation();
+            layers[index].visible = !layers[index].visible;
+            layers[index].canvas.style.display = layers[index].visible ? 'block' : 'none';
+            updateLayersUI();
+            updateCompositeCanvas();
+        }
+
+        function setActiveLayer(index) {
+            activeLayerIndex = index;
+            updateLayersUI();
+            
+            // Sync slider UI controls with layer values
+            const l = layers[activeLayerIndex];
+            document.getElementById('layer-blend-mode').value = l.blendMode;
+            document.getElementById('layer-opacity-slider').value = l.opacity;
+            document.getElementById('layer-opacity-val').innerText = `${Math.round(l.opacity * 100)}%`;
+        }
+
+        function updateActiveLayerSettings() {
+            if (!layers[activeLayerIndex]) return;
+            const l = layers[activeLayerIndex];
+            l.blendMode = document.getElementById('layer-blend-mode').value;
+            l.opacity = parseFloat(document.getElementById('layer-opacity-slider').value);
+            
+            l.canvas.style.opacity = l.opacity;
+            l.canvas.style.mixBlendMode = l.blendMode;
+
+            document.getElementById('layer-opacity-val').innerText = `${Math.round(l.opacity * 100)}%`;
+            updateCompositeCanvas();
+        }
+
+        function updateLayersUI() {
+            const listEl = document.getElementById('layers-list');
+            listEl.innerHTML = '';
+
+            // Render layers in reverse order for stacked UI representation
+            for (let i = layers.length - 1; i >= 0; i--) {
+                const l = layers[i];
+                const isActive = (i === activeLayerIndex);
+
+                const item = document.createElement('div');
+                item.onclick = () => setActiveLayer(i);
+                item.className = `glass-panel p-2 rounded-xl flex items-center justify-between cursor-pointer border transition ${
+                    isActive ? 'border-cyan-400 bg-cyan-500/10' : 'border-slate-800 hover:border-slate-700'
+                }`;
+
+                item.innerHTML = `
+                    <div class="flex items-center gap-2">
+                        <button onclick="toggleLayerVisibility(${i}, event)" class="text-slate-400 hover:text-white">
+                            <i data-lucide="${l.visible ? 'eye' : 'eye-off'}" class="w-4 h-4 text-cyan-400"></i>
+                        </button>
+                        <span class="text-xs font-medium text-slate-200">${l.name}</span>
+                    </div>
+                    <div class="flex items-center gap-1">
+                        ${layers.length > 1 ? `
+                            <button onclick="removeLayer(${i}, event)" class="p-1 text-slate-500 hover:text-rose-400">
+                                <i data-lucide="trash-2" class="w-3.5 h-3.5"></i>
+                            </button>
+                        ` : ''}
+                    </div>
+                `;
+                listEl.appendChild(item);
+            }
+            lucide.createIcons();
+        }
+
+        function updateCompositeCanvas() {
+            compositeCtx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            layers.forEach(l => {
+                if (l.visible) {
+                    compositeCtx.globalAlpha = l.opacity;
+                    compositeCtx.globalCompositeOperation = l.blendMode;
+                    compositeCtx.drawImage(l.canvas, 0, 0);
+                }
+            });
+
+            // Update 3D Texture in Realtime
+            if (canvasTexture) {
+                canvasTexture.needsUpdate = true;
+            }
+        }
+
+        /* ==========================================================================
+           4. HIGH-FIDELITY BRUSH & PAINT ENGINE
+           ========================================================================== */
+        let isDrawing = false;
+        let lastX = 0, lastY = 0;
+
+        function setup2DPaintingListeners() {
+            const wrapper = document.getElementById('canvas-wrapper');
+
+            wrapper.addEventListener('pointerdown', (e) => {
+                if (sculptModeActive) return;
+                isDrawing = true;
+                const pos = getCanvasCoordinates(e, wrapper);
+                lastX = pos.x;
+                lastY = pos.y;
+                drawStroke(pos.x, pos.y, true);
+            });
+
+            wrapper.addEventListener('pointermove', (e) => {
+                if (!isDrawing || sculptModeActive) return;
+                const pos = getCanvasCoordinates(e, wrapper);
+                drawStroke(pos.x, pos.y, false);
+                lastX = pos.x;
+                lastY = pos.y;
+            });
+
+            window.addEventListener('pointerup', () => {
+                if (isDrawing) {
+                    isDrawing = false;
+                    updateCompositeCanvas();
+                    saveHistoryState();
+                }
+            });
+        }
+
+        function getCanvasCoordinates(e, container) {
+            const rect = container.getBoundingClientRect();
+            const scaleX = CANVAS_SIZE / rect.width;
+            const scaleY = CANVAS_SIZE / rect.height;
+            return {
+                x: (e.clientX - rect.left) * scaleX,
+                y: (e.clientY - rect.top) * scaleY
+            };
+        }
+
+        function drawStroke(x, y, isInitialPoint = false) {
+            const activeLayer = layers[activeLayerIndex];
+            if (!activeLayer || !activeLayer.visible) return;
+
+            const ctx = activeLayer.ctx;
+
+            // Handle Flood Fill Bucket Tool
+            if (currentTool === 'bucket') {
+                floodFill(ctx, Math.round(x), Math.round(y), currentColor);
+                updateCompositeCanvas();
+                return;
+            }
+
+            // Handle Decal / Sticker Tool
+            if (currentTool === 'decal') {
+                drawDecalStamp(ctx, x, y);
+                updateCompositeCanvas();
+                return;
+            }
+
+            // Standard painting stroke function
+            const renderPoints = getSymmetryPoints(x, y);
+
+            renderPoints.forEach(pt => {
+                const px = pt.x;
+                const py = pt.y;
+
+                ctx.save();
+
+                if (currentTool === 'eraser') {
+                    ctx.globalCompositeOperation = 'destination-out';
+                    ctx.beginPath();
+                    ctx.arc(px, py, brushSize / 2, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (currentTool === 'airbrush') {
+                    ctx.globalCompositeOperation = 'source-over';
+                    const rad = brushSize * 1.5;
+                    const grad = ctx.createRadialGradient(px, py, 0, px, py, rad);
+                    grad.addColorStop(0, hexToRgba(currentColor, brushOpacity * 0.4));
+                    grad.addColorStop(1, hexToRgba(currentColor, 0));
+                    ctx.fillStyle = grad;
+                    ctx.beginPath();
+                    ctx.arc(px, py, rad, 0, Math.PI * 2);
+                    ctx.fill();
+                } else if (currentTool === 'neon') {
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.strokeStyle = currentColor;
+                    ctx.shadowColor = currentColor;
+                    ctx.shadowBlur = brushSize * 0.8;
+                    ctx.lineWidth = brushSize * 0.4;
+                    ctx.lineCap = 'round';
+                    ctx.beginPath();
+                    ctx.moveTo(lastX, lastY);
+                    ctx.lineTo(px, py);
+                    ctx.stroke();
+                } else if (currentTool === 'smudge') {
+                    // Simple local smudge effect
+                    const region = ctx.getImageData(Math.max(0, px - 10), Math.max(0, py - 10), 20, 20);
+                    ctx.putImageData(region, px - 8, py - 8);
+                } else {
+                    // Standard Hard/Soft Brush
+                    ctx.globalCompositeOperation = 'source-over';
+                    ctx.strokeStyle = hexToRgba(currentColor, brushOpacity);
+                    ctx.lineWidth = brushSize;
+                    ctx.lineCap = 'round';
+                    ctx.lineJoin = 'round';
+
+                    ctx.beginPath();
+                    if (isInitialPoint) {
+                        ctx.arc(px, py, brushSize / 2, 0, Math.PI * 2);
+                        ctx.fillStyle = hexToRgba(currentColor, brushOpacity);
+                        ctx.fill();
+                    } else {
+                        ctx.moveTo(lastX, lastY);
+                        ctx.lineTo(px, py);
+                        ctx.stroke();
+                    }
+                }
+
+                ctx.restore();
+            });
+
+            updateCompositeCanvas();
+        }
+
+        function getSymmetryPoints(x, y) {
+            const points = [{ x, y }];
+            const cx = CANVAS_SIZE / 2;
+            const cy = CANVAS_SIZE / 2;
+
+            if (symmetryMode === 'vertical' || symmetryMode === 'radial') {
+                points.push({ x: CANVAS_SIZE - x, y: y });
+            }
+            if (symmetryMode === 'horizontal' || symmetryMode === 'radial') {
+                points.push({ x: x, y: CANVAS_SIZE - y });
+                if (symmetryMode === 'radial') {
+                    points.push({ x: CANVAS_SIZE - x, y: CANVAS_SIZE - y });
+                }
+            }
+            if (symmetryMode === 'radial') {
+                // 8-Way Radial Symmetry
+                const dx = x - cx;
+                const dy = y - cy;
+                points.push({ x: cx + dy, y: cy + dx });
+                points.push({ x: cx - dy, y: cy + dx });
+                points.push({ x: cx + dy, y: cy - dx });
+                points.push({ x: cx - dy, y: cy - dx });
+            }
+            return points;
+        }
+
+        function drawDecalStamp(ctx, x, y) {
+            ctx.save();
+            ctx.translate(x, y);
+            ctx.fillStyle = currentColor;
+            ctx.shadowColor = currentColor;
+            ctx.shadowBlur = 15;
+
+            // Draw futuristic cyber emblem decal
+            ctx.beginPath();
+            for (let i = 0; i < 6; i++) {
+                const angle = (i * Math.PI) / 3;
+                const r = brushSize * 1.2;
+                const px = Math.cos(angle) * r;
+                const py = Math.sin(angle) * r;
+                if (i === 0) ctx.moveTo(px, py);
+                else ctx.lineTo(px, py);
+            }
+            ctx.closePath();
+            ctx.lineWidth = 3;
+            ctx.strokeStyle = currentColor;
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.arc(0, 0, brushSize * 0.4, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+        }
+
+        function floodFill(ctx, startX, startY, fillHex) {
+            const imgData = ctx.getImageData(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+            const data = imgData.data;
+
+            const targetR = data[(startY * CANVAS_SIZE + startX) * 4];
+            const targetG = data[(startY * CANVAS_SIZE + startX) * 4 + 1];
+            const targetB = data[(startY * CANVAS_SIZE + startX) * 4 + 2];
+            const targetA = data[(startY * CANVAS_SIZE + startX) * 4 + 3];
+
+            const fillRgb = hexToRgbArray(fillHex);
+            if (targetR === fillRgb[0] && targetG === fillRgb[1] && targetB === fillRgb[2]) return;
+
+            const pixelStack = [[startX, startY]];
+
+            while (pixelStack.length) {
+                const newPos = pixelStack.pop();
+                const x = newPos[0];
+                let y = newPos[1];
+
+                let pixelPos = (y * CANVAS_SIZE + x) * 4;
+
+                while (y >= 0 && matchColor(data, pixelPos, targetR, targetG, targetB, targetA)) {
+                    y--;
+                    pixelPos -= CANVAS_SIZE * 4;
+                }
+                pixelPos += CANVAS_SIZE * 4;
+                y++;
+
+                let reachLeft = false;
+                let reachRight = false;
+
+                while (y < CANVAS_SIZE && matchColor(data, pixelPos, targetR, targetG, targetB, targetA)) {
+                    data[pixelPos] = fillRgb[0];
+                    data[pixelPos + 1] = fillRgb[1];
+                    data[pixelPos + 2] = fillRgb[2];
+                    data[pixelPos + 3] = 255;
+
+                    if (x > 0) {
+                        if (matchColor(data, pixelPos - 4, targetR, targetG, targetB, targetA)) {
+                            if (!reachLeft) {
+                                pixelStack.push([x - 1, y]);
+                                reachLeft = true;
+                            }
+                        } else if (reachLeft) {
+                            reachLeft = false;
+                        }
+                    }
+
+                    if (x < CANVAS_SIZE - 1) {
+                        if (matchColor(data, pixelPos + 4, targetR, targetG, targetB, targetA)) {
+                            if (!reachRight) {
+                                pixelStack.push([x + 1, y]);
+                                reachRight = true;
+                            }
+                        } else if (reachRight) {
+                            reachRight = false;
+                        }
+                    }
+
+                    y++;
+                    pixelPos += CANVAS_SIZE * 4;
+                }
+            }
+
+            ctx.putImageData(imgData, 0, 0);
+        }
+
+        function matchColor(data, pos, r, g, b, a) {
+            return data[pos] === r && data[pos + 1] === g && data[pos + 2] === b && data[pos + 3] === a;
+        }
+
+        /* ==========================================================================
+           5. THREE.JS 3D ENGINE, REAL-TIME UV MAPPING & SCULPTING
+           ========================================================================== */
+        function init3DEngine() {
+            const container = document.getElementById('viewport-3d');
+            const canvas = document.getElementById('three-canvas');
+
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0x05070d);
+
+            camera = new THREE.PerspectiveCamera(45, container.clientWidth / container.clientHeight, 0.1, 100);
+            camera.position.set(0, 0, 4.5);
+
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, preserveDrawingBuffer: true });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+
+            // Live Canvas Texture Setup
+            canvasTexture = new THREE.CanvasTexture(compositeCanvas);
+            canvasTexture.wrapS = THREE.RepeatWrapping;
+            canvasTexture.wrapT = THREE.RepeatWrapping;
+
+            // Standard PBR Mesh Material
+            pbrMaterial = new THREE.MeshStandardMaterial({
+                map: canvasTexture,
+                roughness: 0.3,
+                metalness: 0.4,
+                clearcoat: 0.5,
+                clearcoatRoughness: 0.1,
+                emissive: new THREE.Color(0x00f0ff),
+                emissiveIntensity: 0.2,
+                bumpMap: canvasTexture,
+                bumpScale: 0.05
+            });
+
+            // Lighting Setup
+            lightRigGroup = new THREE.Group();
+            scene.add(lightRigGroup);
+
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+
+            keyLight = new THREE.DirectionalLight(0x00f0ff, 1.2);
+            keyLight.position.set(3, 4, 3);
+            keyLight.castShadow = true;
+            lightRigGroup.add(keyLight);
+
+            fillLight = new THREE.DirectionalLight(0x7000ff, 0.8);
+            fillLight.position.set(-3, -2, -2);
+            lightRigGroup.add(fillLight);
+
+            // Group for 3D Spatial Air Drawing
+            spatialRibbonGroup = new THREE.Group();
+            scene.add(spatialRibbonGroup);
+
+            // Default 3D Mesh
+            load3DMesh('bust');
+
+            // Raycasting for direct 3D painting & sculpting
+            setupRaycasterListeners();
+
+            // Start Animation Render Loop
+            animate();
+        }
+
+        function load3DMesh(meshType) {
+            if (currentMesh) scene.remove(currentMesh);
+
+            let geometry;
+
+            if (meshType === 'sphere') {
+                geometry = new THREE.SphereGeometry(1.2, 64, 64);
+            } else if (meshType === 'bust') {
+                // Procedural Head/Bust Sculpting Base
+                geometry = createSculptingHeadGeometry();
+            } else if (meshType === 'car') {
+                geometry = new THREE.BoxGeometry(2.2, 0.8, 1.2, 32, 32, 32);
+            } else if (meshType === 'torus') {
+                geometry = new THREE.TorusGeometry(1.0, 0.4, 32, 64);
+            } else if (meshType === 'flat') {
+                geometry = new THREE.PlaneGeometry(2.2, 2.2, 64, 64);
+            } else {
+                geometry = new THREE.BoxGeometry(1.6, 1.6, 1.6, 32, 32, 32);
+            }
+
+            currentMesh = new THREE.Mesh(geometry, pbrMaterial);
+            currentMesh.castShadow = true;
+            currentMesh.receiveShadow = true;
+            scene.add(currentMesh);
+        }
+
+        function createSculptingHeadGeometry() {
+            // Stylized head bust base using deformed sphere
+            const geo = new THREE.SphereGeometry(1.1, 64, 64);
+            const pos = geo.attributes.position;
+            for (let i = 0; i < pos.count; i++) {
+                let y = pos.getY(i);
+                let z = pos.getZ(i);
+                let x = pos.getX(i);
+
+                if (y < -0.3) {
+                    // Taper neck
+                    pos.setX(i, x * 0.7);
+                    pos.setZ(i, z * 0.7);
+                }
+                if (z > 0.5 && y > -0.1 && y < 0.3) {
+                    // Elongate nose/jaw feature
+                    pos.setZ(i, z * 1.15);
+                }
+            }
+            geo.computeVertexNormals();
+            return geo;
+        }
+
+        function change3DMesh(type) {
+            load3DMesh(type);
+        }
+
+        /* Direct 3D Surface Painting & Sculpting Raycaster */
+        function setupRaycasterListeners() {
+            const canvas3D = document.getElementById('three-canvas');
+            const raycaster = new THREE.Raycaster();
+            const mouse = new THREE.Vector2();
+
+            canvas3D.addEventListener('pointerdown', (e) => {
+                if (e.button !== 0) return; // Only left click
+
+                const rect = canvas3D.getBoundingClientRect();
+                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+
+                if (currentTool === 'spatial-ribbon') {
+                    isSpatialDrawing = true;
+                    controls.enabled = false;
+                    spatialPoints = [];
+                    return;
+                }
+
+                const intersects = raycaster.intersectObject(currentMesh);
+
+                if (intersects.length > 0) {
+                    const hit = intersects[0];
+
+                    if (sculptModeActive) {
+                        isSculpting = true;
+                        controls.enabled = false;
+                        sculptMeshGeometry(hit, currentTool === 'sculpt-raise' ? 0.08 : -0.08);
+                    } else if (hit.uv) {
+                        // Direct 3D Painting onto UV surface texture!
+                        controls.enabled = false;
+                        isDrawing = true;
+                        const uvX = hit.uv.x * CANVAS_SIZE;
+                        const uvY = (1 - hit.uv.y) * CANVAS_SIZE;
+                        lastX = uvX;
+                        lastY = uvY;
+                        drawStroke(uvX, uvY, true);
+                    }
+                }
+            });
+
+            canvas3D.addEventListener('pointermove', (e) => {
+                const rect = canvas3D.getBoundingClientRect();
+                mouse.x = ((e.clientX - rect.left) / rect.width) * 2 - 1;
+                mouse.y = -((e.clientY - rect.top) / rect.height) * 2 + 1;
+
+                raycaster.setFromCamera(mouse, camera);
+
+                if (isSpatialDrawing) {
+                    // Draw glowing spatial ribbon tube in 3D scene
+                    const planeNormal = new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion);
+                    const plane = new THREE.Plane(planeNormal, 0);
+                    const targetPt = new THREE.Vector3();
+                    raycaster.ray.intersectPlane(plane, targetPt);
+
+                    if (targetPt) {
+                        spatialPoints.push(targetPt);
+                        renderSpatialRibbon();
+                    }
+                    return;
+                }
+
+                const intersects = raycaster.intersectObject(currentMesh);
+
+                if (intersects.length > 0 && (isDrawing || isSculpting)) {
+                    const hit = intersects[0];
+
+                    if (isSculpting) {
+                        sculptMeshGeometry(hit, currentTool === 'sculpt-raise' ? 0.04 : -0.04);
+                    } else if (hit.uv && isDrawing) {
+                        const uvX = hit.uv.x * CANVAS_SIZE;
+                        const uvY = (1 - hit.uv.y) * CANVAS_SIZE;
+                        drawStroke(uvX, uvY, false);
+                        lastX = uvX;
+                        lastY = uvY;
+                    }
+                }
+            });
+
+            window.addEventListener('pointerup', () => {
+                controls.enabled = true;
+                if (isSculpting) {
+                    isSculpting = false;
+                    currentMesh.geometry.computeVertexNormals();
+                }
+                if (isSpatialDrawing) {
+                    isSpatialDrawing = false;
+                }
+            });
+        }
+
+        /* 3D Surface Mesh Geometry Deformation (Sculpting) */
+        function sculptMeshGeometry(hit, strength) {
+            const geo = currentMesh.geometry;
+            const pos = geo.attributes.position;
+            const point = hit.point;
+            const radius = brushSize * 0.02;
+
+            for (let i = 0; i < pos.count; i++) {
+                const vx = pos.getX(i);
+                const vy = pos.getY(i);
+                const vz = pos.getZ(i);
+
+                const vWorld = new THREE.Vector3(vx, vy, vz).applyMatrix4(currentMesh.matrixWorld);
+                const dist = vWorld.distanceTo(point);
+
+                if (dist < radius) {
+                    const falloff = Math.cos((dist / radius) * (Math.PI / 2));
+                    const normal = hit.face.normal;
+
+                    pos.setXYZ(
+                        i,
+                        vx + normal.x * strength * falloff,
+                        vy + normal.y * strength * falloff,
+                        vz + normal.z * strength * falloff
+                    );
+                }
+            }
+            pos.needsUpdate = true;
+        }
+
+        /* 3D Volumetric Spatial Ribbon Air Drawing */
+        function renderSpatialRibbon() {
+            if (spatialPoints.length < 2) return;
+
+            const curve = new THREE.CatmullRomCurve3(spatialPoints);
+            const tubeGeo = new THREE.TubeGeometry(curve, spatialPoints.length * 2, brushSize * 0.005, 8, false);
+            
+            const ribbonMat = new THREE.MeshStandardMaterial({
+                color: currentColor,
+                emissive: currentColor,
+                emissiveIntensity: 0.8,
+                roughness: 0.1
+            });
+
+            const ribbonMesh = new THREE.Mesh(tubeGeo, ribbonMat);
+            
+            // Remove previous active stroke preview mesh
+            const lastChild = spatialRibbonGroup.children[spatialRibbonGroup.children.length - 1];
+            if (isSpatialDrawing && lastChild && lastChild.isTemp) {
+                spatialRibbonGroup.remove(lastChild);
+            }
+
+            ribbonMesh.isTemp = isSpatialDrawing;
+            spatialRibbonGroup.add(ribbonMesh);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // Auto-rotation mode
+            if (document.getElementById('toggle-auto-rotate').checked && currentMesh) {
+                currentMesh.rotation.y += 0.005;
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+
+        function onWindowResize() {
+            const container3d = document.getElementById('viewport-3d');
+            camera.aspect = container3d.clientWidth / container3d.clientHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(container3d.clientWidth, container3d.clientHeight);
+        }
+
+        /* ==========================================================================
+           6. UI CONTROLS, PBR MATERIALS & LIGHTING
+           ========================================================================== */
+        function setViewportMode(mode) {
+            viewportMode = mode;
+
+            const vp2d = document.getElementById('viewport-2d');
+            const vp3d = document.getElementById('viewport-3d');
+
+            document.getElementById('btn-mode-split').classList.remove('active');
+            document.getElementById('btn-mode-2d').classList.remove('active');
+            document.getElementById('btn-mode-3d').classList.remove('active');
+
+            if (mode === 'split') {
+                vp2d.style.display = 'flex';
+                vp3d.style.display = 'flex';
+                document.getElementById('btn-mode-split').classList.add('active');
+            } else if (mode === '2d') {
+                vp2d.style.display = 'flex';
+                vp3d.style.display = 'none';
+                document.getElementById('btn-mode-2d').classList.add('active');
+            } else if (mode === '3d') {
+                vp2d.style.display = 'none';
+                vp3d.style.display = 'flex';
+                document.getElementById('btn-mode-3d').classList.add('active');
+            }
+            onWindowResize();
+        }
+
+        function setActivePanel(panelName) {
+            ['brush', 'layers', 'material', 'scene'].forEach(p => {
+                document.getElementById(`panel-${p}`).classList.add('hidden');
+                document.getElementById(`tab-${p}`).classList.remove('active');
+            });
+            document.getElementById(`panel-${panelName}`).classList.remove('hidden');
+            document.getElementById(`tab-${panelName}`).classList.add('active');
+        }
+
+        function setTool(toolName) {
+            currentTool = toolName;
+
+            // Highlight Tool Buttons
+            const toolBtns = ['brush', 'airbrush', 'neon', 'smudge', 'bucket', 'decal', 'eraser', 'sculpt-raise', 'sculpt-lower', 'spatial-ribbon'];
+            toolBtns.forEach(t => {
+                const btn = document.getElementById(`tool-${t}`);
+                if (btn) btn.classList.remove('active');
+            });
+
+            const activeBtn = document.getElementById(`tool-${toolName}`);
+            if (activeBtn) activeBtn.classList.add('active');
+
+            sculptModeActive = (toolName === 'sculpt-raise' || toolName === 'sculpt-lower');
+            document.getElementById('sculpt-mode-badge').style.display = sculptModeActive ? 'block' : 'none';
+
+            document.getElementById('brush-type-label').innerText = toolName.toUpperCase();
+            drawBrushHUD();
+        }
+
+        function updateBrushSettings() {
+            brushSize = parseInt(document.getElementById('input-brush-size').value);
+            brushOpacity = parseFloat(document.getElementById('input-brush-opacity').value);
+            brushHardness = parseFloat(document.getElementById('input-brush-hardness').value);
+
+            document.getElementById('size-val').innerText = `${brushSize}px`;
+            document.getElementById('opacity-val').innerText = `${Math.round(brushOpacity * 100)}%`;
+            document.getElementById('hardness-val').innerText = `${Math.round(brushHardness * 100)}%`;
+
+            drawBrushHUD();
+        }
+
+        function setColor(hex) {
+            currentColor = hex;
+            document.getElementById('input-color-picker').value = hex;
+            drawBrushHUD();
+        }
+
+        function setSymmetry(mode) {
+            symmetryMode = mode;
+            ['none', 'vertical', 'horizontal', 'radial'].forEach(m => {
+                document.getElementById(`sym-${m}`).classList.remove('active');
+            });
+            document.getElementById(`sym-${mode}`).classList.add('active');
+
+            const ind = document.getElementById('symmetry-indicator');
+            ind.style.display = (mode !== 'none') ? 'block' : 'none';
+        }
+
+        function drawBrushHUD() {
+            const canvas = document.getElementById('brush-hud-canvas');
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            ctx.fillStyle = hexToRgba(currentColor, brushOpacity);
+            ctx.beginPath();
+            ctx.arc(canvas.width / 2, canvas.height / 2, Math.min(brushSize / 2, 28), 0, Math.PI * 2);
+            ctx.fill();
+
+            // Stroke preview line
+            ctx.strokeStyle = currentColor;
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(20, canvas.height / 2);
+            ctx.quadraticCurveTo(canvas.width / 4, 10, canvas.width / 2 - 40, canvas.height / 2);
+            ctx.stroke();
+        }
+
+        function updatePBRMaterial() {
+            pbrMaterial.roughness = parseFloat(document.getElementById('pbr-roughness').value);
+            pbrMaterial.metalness = parseFloat(document.getElementById('pbr-metalness').value);
+            pbrMaterial.clearcoat = parseFloat(document.getElementById('pbr-clearcoat').value);
+            pbrMaterial.bumpScale = parseFloat(document.getElementById('pbr-bump').value);
+            pbrMaterial.emissiveIntensity = parseFloat(document.getElementById('pbr-emissive').value);
+
+            document.getElementById('val-roughness').innerText = pbrMaterial.roughness.toFixed(2);
+            document.getElementById('val-metalness').innerText = pbrMaterial.metalness.toFixed(2);
+            document.getElementById('val-clearcoat').innerText = pbrMaterial.clearcoat.toFixed(2);
+            document.getElementById('val-bump').innerText = pbrMaterial.bumpScale.toFixed(2);
+            document.getElementById('val-emissive').innerText = pbrMaterial.emissiveIntensity.toFixed(2);
+        }
+
+        function setLightingPreset(preset) {
+            if (preset === 'cyberpunk') {
+                scene.background.setHex(0x050510);
+                keyLight.color.setHex(0x00f0ff);
+                fillLight.color.setHex(0xff007f);
+            } else if (preset === 'studio') {
+                scene.background.setHex(0x1a1d24);
+                keyLight.color.setHex(0xffffff);
+                fillLight.color.setHex(0xcccccc);
+            } else if (preset === 'sunset') {
+                scene.background.setHex(0x150a10);
+                keyLight.color.setHex(0xff9900);
+                fillLight.color.setHex(0x7000ff);
+            } else if (preset === 'deepspace') {
+                scene.background.setHex(0x020205);
+                keyLight.color.setHex(0x00ff66);
+                fillLight.color.setHex(0x00f0ff);
+            }
+        }
+
+        function updateLightingControls() {
+            const rot = parseFloat(document.getElementById('light-rotation').value);
+            document.getElementById('val-light-rot').innerText = `${rot}°`;
+            lightRigGroup.rotation.y = (rot * Math.PI) / 180;
+        }
+
+        function toggleWireframe(enabled) {
+            pbrMaterial.wireframe = enabled;
+        }
+
+        function toggleAutoRotate(enabled) {
+            // Checked inside animate render loop
+        }
+
+        function toggleCanvasGrid() {
+            const grid = document.getElementById('canvas-grid');
+            grid.classList.toggle('hidden');
+        }
+
+        /* ==========================================================================
+           7. UNDO / REDO HISTORY STACK
+           ========================================================================== */
+        function saveHistoryState() {
+            if (historyStep < historyStack.length - 1) {
+                historyStack = historyStack.slice(0, historyStep + 1);
+            }
+            if (historyStack.length >= MAX_HISTORY) {
+                historyStack.shift();
+            }
+
+            const state = layers.map(l => ({
+                id: l.id,
+                name: l.name,
+                visible: l.visible,
+                opacity: l.opacity,
+                blendMode: l.blendMode,
+                dataUrl: l.canvas.toDataURL()
+            }));
+
+            historyStack.push(state);
+            historyStep = historyStack.length - 1;
+        }
+
+        function undo() {
+            if (historyStep > 0) {
+                historyStep--;
+                restoreHistoryState(historyStack[historyStep]);
+            }
+        }
+
+        function redo() {
+            if (historyStep < historyStack.length - 1) {
+                historyStep++;
+                restoreHistoryState(historyStack[historyStep]);
+            }
+        }
+
+        function restoreHistoryState(state) {
+            state.forEach((savedLayer, i) => {
+                if (layers[i]) {
+                    const img = new Image();
+                    img.onload = function () {
+                        layers[i].ctx.clearRect(0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                        layers[i].ctx.drawImage(img, 0, 0);
+                        updateCompositeCanvas();
+                    };
+                    img.src = savedLayer.dataUrl;
+                }
+            });
+        }
+
+        /* ==========================================================================
+           8. IMPORT / EXPORT CAPABILITIES
+           ========================================================================== */
+        function export2DCanvas(format = 'png') {
+            const link = document.createElement('a');
+            link.download = `nova-artwork-${Date.now()}.${format}`;
+            link.href = compositeCanvas.toDataURL(`image/${format}`);
+            link.click();
+        }
+
+        function export3DRender() {
+            renderer.render(scene, camera);
+            const link = document.createElement('a');
+            link.download = `nova-3d-render-${Date.now()}.png`;
+            link.href = renderer.domElement.toDataURL('image/png');
+            link.click();
+        }
+
+        function triggerImportImage() {
+            document.getElementById('image-loader').click();
+        }
+
+        function handleImageImport(e) {
+            const file = e.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function (event) {
+                const img = new Image();
+                img.onload = function () {
+                    addLayer(`Imported Image`);
+                    const activeCtx = layers[activeLayerIndex].ctx;
+                    activeCtx.drawImage(img, 0, 0, CANVAS_SIZE, CANVAS_SIZE);
+                    updateCompositeCanvas();
+                    saveHistoryState();
+                };
+                img.src = event.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+
+        /* Utility Helpers */
+        function hexToRgba(hex, alpha = 1) {
+            const c = hexToRgbArray(hex);
+            return `rgba(${c[0]}, ${c[1]}, ${c[2]}, ${alpha})`;
+        }
+
+        function hexToRgbArray(hex) {
+            let c = hex.replace('#', '');
+            if (c.length === 3) c = c.split('').map(x => x + x).join('');
+            const num = parseInt(c, 16);
+            return [(num >> 16) & 255, (num >> 8) & 255, num & 255];
+        }
+    </script>
+</body>
+</html>
